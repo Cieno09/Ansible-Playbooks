@@ -1,0 +1,29 @@
+---
+- name: Deploy Static App
+  hosts: all
+  become: yes 
+  tasks: 
+    - name: Apt Update
+      apt:
+        update_cache: yes
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: latest
+    - name: Git
+      git:
+        repo: https://github.com/Cieno09/static-monopoly.git
+        dest: /var/www/html/static-monopoly
+        single_branch: yes
+        version: master
+    - name: Cuppy    
+      copy:
+        src: /home/azureuser/ansible/enables
+        dest: /etc/nginx/sites-enabled/default
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
+        
+
+          

@@ -1,0 +1,98 @@
+---
+- hosts: all
+  become: true
+
+  tasks:
+    # Update the operating system
+    - name: Update the OS
+      apt:
+        upgrade: dist
+        update_cache: yes
+
+    # Install and configure the firewall
+    - name: Install and configure firewall
+      apt:
+        name: ufw
+        state: present
+      tags: firewall
+
+    - name: Allow SSH and block everything else
+      ufw:
+        rule: allow
+        port: ssh
+        comment: "Allow SSH"
+        state: enabled
+      tags: firewall
+
+    - name: Enable ufw
+      ufw:
+        state: enabled
+      tags: firewall
+
+    # Disable unused services
+    - name: Disable unused services
+      service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      with_items:
+        - telnet
+        - ftp
+      tags: services
+
+    # Implement strong password policies
+    - name: Enforce strong password policies
+      pam_pwquality:
+        retry: 3
+        minlen: 14
+        dcredit: -1
+        ucredit: -1
+        ocredit: -1
+        lcredit: -1
+      tags: password
+
+    # Configure access controls
+    - name: Restrict root access
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin no'
+      notify:
+        - restart sshd
+      tags: sshd
+
+    # Enable logging and monitoring
+    - name: Enable logging
+      lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: 'auth.*'
+        line: 'auth.* /var/log/auth.log'
+      notify:
+        - restart rsyslog
+      tags: logging
+
+    # Harden network services
+    - name: Configure SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+      notify:
+        - restart sshd
+      tags: sshd
+
+    # Install and configure intrusion detection/prevention software
+    - name: Install fail2ban
+      apt:
+        name: fail2ban
+        state: present
+      tags: fail2ban
+
+    - name: Configure fail2ban
+      copy:
+        src: /etc/fail2ban/jail.conf
+        dest: /etc/fail2ban/jail.local
+      notify:
+
+
+

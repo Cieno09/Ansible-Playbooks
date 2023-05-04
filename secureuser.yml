@@ -1,0 +1,24 @@
+- name: Secure user accounts
+  hosts: web
+  become: yes
+  tasks:
+  - name: Set password policy
+    pam_pwquality:
+      minlen: 12
+      dcredit: -1
+      ucredit: -1
+      ocredit: -1
+      lcredit: -1
+      retry: 3
+
+  - name: Create user accounts
+    user:
+      name: alice
+      password: "{{ 'SuperSecretPassword123' | password_hash('sha512') }}"
+      groups: wheel
+      shell: /bin/bash
+
+  - name: Remove unnecessary users
+    user:
+      name: bob
+      state: absent

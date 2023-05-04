@@ -1,0 +1,16 @@
+- name: Server Harden
+  hosts: all
+  become: yes
+  tasks: 
+    - name: Apt Update
+      apt:
+        update_cache: yes
+    - name: ufw general
+      community.general.ufw:
+        rule: limit
+        port: ssh
+        proto: tcp
+
+
+
+      

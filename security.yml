@@ -1,0 +1,127 @@
+---
+- name: Deploy Static App
+  hosts: all
+  become: yes 
+  tasks:
+   
+  - name: Ensure firewall package is installed
+    ansible.builtin.apt:
+      name: firewalld
+      state: present
+
+  - name: Ensure firewall service is up and running
+    ansible.builtin.service:
+      name: firewalld
+      state: started
+      enabled: yes
+
+  - name: Block non-required services
+    ansible.posix.firewalld:
+      service: "{{ item }}"
+      state: disabled
+      permanent: yes
+      immediate: yes
+    loop:
+      - cockpit
+      - dhcpv6-client
+
+  - name: Enabled reqiured services
+    ansible.posix.firewalld:
+      service: ssh
+      state: enabled
+      permanent: yes
+      immediate: yes
+
+  - name: Set PermitRootLogin to no in sshd_config
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^#?PermitRootLogin'
+      line: 'PermitRootLogin no'
+      state: present
+      backup: yes
+
+  - name: Restart SSH service
+    service:
+      name: sshd
+      state: restarted
+
+
+
+
+
+  - name: Get list of listening ports
+    shell: 'ss -tln | awk "NR>1{print \$4}" | awk -F":" "{print \$NF}" | sort -u'
+    register: listening_ports
+
+  # - name: Set firewall rules
+  #   firewalld:
+  #     port: '{{ item }}/tcp'
+  #     state: enabled
+  #   with_items: "{{ all_ports | difference(listening_ports.stdout_lines) }}"
+  # vars:
+  #   all_ports:
+  #       - 20
+  #       - 21
+  #       - 22
+  #       - 25
+  #       - 53
+  #       - 80
+  #       - 110
+  #       - 143
+  #       - 443
+  #       - 465
+  #       - 587
+  #       - 993
+  #       - 995
+
+  - name: Reload firewall
+    service:
+      name: firewalld
+      state: reloaded
+
+
+
+
+
+  - name: Install required packages
+    package:
+      name: '{{ item }}'
+      state: present
+    with_items:
+      - fail2ban
+      - sysstat
+      - iptables
+
+  - name: Configure fail2ban
+    template:
+      src: fail2ban.j2
+      dest: /etc/fail2ban/fail2ban.conf
+      mode: 0600
+    notify: restart fail2ban
+
+  - name: Configure sysstat
+    lineinfile:
+      path: /etc/cron.d/sysstat
+      line: '*/5 * * * * root /usr/lib64/sa/sa1 1 1'
+    notify: restart sysstat
+
+  - name: Configure iptables
+    template:
+      src: iptables.j2
+      dest: /etc/sysconfig/iptables
+      mode: 0600
+    notify: restart iptables
+
+  - name: restart fail2ban
+    service:
+      name: fail2ban
+      state: restarted
+  - name: restart sysstat
+    service:
+      name: sysstat
+      state: restarted
+
+  - name: restart iptables
+    service:
+      name: iptables
+      state: restarted    
